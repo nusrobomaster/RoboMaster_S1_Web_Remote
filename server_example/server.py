@@ -15,11 +15,15 @@ from av import VideoFrame
 
 from aiortc import *
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder
+from aioice.candidate import Candidate
+from aiortc.rtcicetransport import candidate_from_aioice
 
 ROOT = os.path.dirname(__file__)
 
 logger = logging.getLogger("pc")
 pcs = set()
+
+
 
 
 class VideoTransformTrack(MediaStreamTrack):
@@ -57,12 +61,7 @@ async def offer(request):
     else:
         recorder = MediaBlackhole()
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
+    
 
     @pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
@@ -104,7 +103,12 @@ async def on_shutdown(app):
     await asyncio.gather(*coros)
     pcs.clear()
 
+robot_connection = None
+control_data_channel = None
+websocket = None
+
 async def connect_to_signalling_server(uri, login_message):
+    global websocket
     websocket = await websockets.connect(uri)
     await websocket.send(json.dumps(login_message))
     async for message in websocket:
@@ -117,20 +121,26 @@ async def recv_message_handler(message):
     elif data["type"] == "offer":
         await offer_handler(data["offer"], data["name"])
     elif data["type"] == "candidate":
-        print(data)
+        await recv_remote_candidate_handler(data["candidate"])
     else:
         pass
 
-robot_connection = None
-control_data_channel = None
+
 
 async def login_handler():
+    global robot_connection
     config = RTCConfiguration([\
         RTCIceServer("turn:54.179.2.91:3478", username="RaghavB", credential="RMTurnServer"),\
         RTCIceServer("stun:stun.1.google.com:19302")])
-    
-    global robot_connection
+
     robot_connection = RTCPeerConnection(configuration=config)
+
+    @robot_connection.on("datachannel")
+    def on_datachannel(channel):
+        @channel.on("message")
+        def on_message(message):
+            print(message)
+            
     # RtpDataChannels: true is missing
     print("RTCPeerConnection object is created")
 
@@ -138,58 +148,56 @@ async def login_handler():
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
 
 async def offer_handler(offer, name):
-    print("OFFER")
-    print(offer)
-    print("NAME")
-    print(name)
+    global websocket
+    global robot_connection
+    
+    await robot_connection.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
+    answer = await robot_connection.createAnswer()
+    await robot_connection.setLocalDescription(answer)
+    print("LOCAL")
+    print(robot_connection.localDescription)
+    message = json.dumps({"answer": \
+        {"sdp": robot_connection.localDescription.sdp, \
+        "type": robot_connection.localDescription.type}, \
+        "name": name,
+        "type": robot_connection.localDescription.type})
+    await websocket.send(message)
+    print("answer sent to " + name)
 
-async def recv_remote_candidate_handler():
+
+def parse_candidate(candidateInitDict):
+    candpref = 'candidate:'
+    candstr = candidateInitDict['candidate']
+    if not candstr.startswith(candpref):
+            raise ValueError('does not start with proper string')
+    candstr = candstr[len(candpref):]
+    cand = Candidate.from_sdp(candstr)
+
+    ric = candidate_from_aioice(cand)
+    ric.sdpMid = candidateInitDict['sdpMid']
+    ric.sdpMLineIndex = candidateInitDict['sdpMLineIndex']
+    # XXX - exists as part of RTCIceParameters
+    #ric.usernameFragment = candidateInitDict['usernameFragment']
+    return ric
+
+async def recv_remote_candidate_handler(candidate):
+    global robot_connection
+    my_candy = parse_candidate(candidate)    
+    print(my_candy)
+    robot_connection.addIceCandidate(my_candy)
+    print("candidate added")
+
+async def send_local_candidates():
+    global websocket
+    global robot_connection
     pass
+    #local_candidate_list = robot_connection.__sctp.transport.transport.iceGatherer.getLocalCandidates()
+    #print(local_candidate_list)
 
 if __name__ == "__main__":
     signalling_server_uri = "ws://54.179.2.91:49621"
     robot_id = sys.argv[1]
 
-    login_message = {"type": "login", "name": robot_id}
-
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(connect_to_signalling_server(signalling_server_uri, login_message))
-    loop.run_forever();
-
-"""
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="WebRTC audio / video / data-channels demo"
-    )
-    parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
-    parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
-    )
-    parser.add_argument("--verbose", "-v", action="count")
-    parser.add_argument("--write-audio", help="Write received audio to a file")
-    args = parser.parse_args()
-
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    if args.cert_file:
-        ssl_context = ssl.SSLContext()
-        ssl_context.load_cert_chain(args.cert_file, args.key_file)
-    else:
-        ssl_context = None
-
-    app = web.Application()
-    app.on_shutdown.append(on_shutdown)
-    app.router.add_get("/", index)
-    app.router.add_get("/client.js", javascript)
-    app.router.add_post("/offer", offer)
-    web.run_app(
-        app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
-    )
-"""
+    loop.run_until_complete(connect_to_signalling_server(signalling_server_uri, {"type": "login", "name": robot_id}))
+    loop.run_forever()
