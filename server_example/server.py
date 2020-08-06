@@ -6,11 +6,14 @@ import os
 import ssl
 import uuid
 
+import websockets
+import sys
 import cv2
+
 from aiohttp import web
 from av import VideoFrame
 
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc import *
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder
 
 ROOT = os.path.dirname(__file__)
@@ -26,78 +29,13 @@ class VideoTransformTrack(MediaStreamTrack):
 
     kind = "video"
 
-    def __init__(self, track, transform):
+    def __init__(self, track):
         super().__init__()  # don't forget this!
         self.track = track
-        self.transform = transform
 
     async def recv(self):
         frame = await self.track.recv()
-
-        if self.transform == "cartoon":
-            img = frame.to_ndarray(format="bgr24")
-
-            # prepare color
-            img_color = cv2.pyrDown(cv2.pyrDown(img))
-            for _ in range(6):
-                img_color = cv2.bilateralFilter(img_color, 9, 9, 7)
-            img_color = cv2.pyrUp(cv2.pyrUp(img_color))
-
-            # prepare edges
-            img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            img_edges = cv2.adaptiveThreshold(
-                cv2.medianBlur(img_edges, 7),
-                255,
-                cv2.ADAPTIVE_THRESH_MEAN_C,
-                cv2.THRESH_BINARY,
-                9,
-                2,
-            )
-            img_edges = cv2.cvtColor(img_edges, cv2.COLOR_GRAY2RGB)
-
-            # combine color and edges
-            img = cv2.bitwise_and(img_color, img_edges)
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        elif self.transform == "edges":
-            # perform edge detection
-            img = frame.to_ndarray(format="bgr24")
-            img = cv2.cvtColor(cv2.Canny(img, 100, 200), cv2.COLOR_GRAY2BGR)
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        elif self.transform == "rotate":
-            # rotate image
-            img = frame.to_ndarray(format="bgr24")
-            rows, cols, _ = img.shape
-            M = cv2.getRotationMatrix2D((cols / 2, rows / 2), frame.time * 45, 1)
-            img = cv2.warpAffine(img, M, (cols, rows))
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        else:
-            return frame
-
-
-async def index(request):
-    content = open(os.path.join(ROOT, "index.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def javascript(request):
-    content = open(os.path.join(ROOT, "client.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
-
+        return frame
 
 async def offer(request):
     params = await request.json()
@@ -137,14 +75,8 @@ async def offer(request):
     def on_track(track):
         log_info("Track %s received", track.kind)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
-            local_video = VideoTransformTrack(
-                track, transform=params["video_transform"]
-            )
-            pc.addTrack(local_video)
+        local_video = VideoTransformTrack(track)
+        pc.addTrack(local_video)
 
         @track.on("ended")
         async def on_ended():
@@ -166,14 +98,65 @@ async def offer(request):
         ),
     )
 
-
 async def on_shutdown(app):
     # close peer connections
     coros = [pc.close() for pc in pcs]
     await asyncio.gather(*coros)
     pcs.clear()
 
+async def connect_to_signalling_server(uri, login_message):
+    websocket = await websockets.connect(uri)
+    await websocket.send(json.dumps(login_message))
+    async for message in websocket:
+        await recv_message_handler(message)    
 
+async def recv_message_handler(message):
+    data = json.loads(message)
+    if data["type"] == "login":
+        await login_handler()
+    elif data["type"] == "offer":
+        await offer_handler(data["offer"], data["name"])
+    elif data["type"] == "candidate":
+        print(data)
+    else:
+        pass
+
+robot_connection = None
+control_data_channel = None
+
+async def login_handler():
+    config = RTCConfiguration([\
+        RTCIceServer("turn:54.179.2.91:3478", username="RaghavB", credential="RMTurnServer"),\
+        RTCIceServer("stun:stun.1.google.com:19302")])
+    
+    global robot_connection
+    robot_connection = RTCPeerConnection(configuration=config)
+    # RtpDataChannels: true is missing
+    print("RTCPeerConnection object is created")
+
+    global control_data_channel
+    control_data_channel = robot_connection.createDataChannel("control_data_channel")
+
+async def offer_handler(offer, name):
+    print("OFFER")
+    print(offer)
+    print("NAME")
+    print(name)
+
+async def recv_remote_candidate_handler():
+    pass
+
+if __name__ == "__main__":
+    signalling_server_uri = "ws://54.179.2.91:49621"
+    robot_id = sys.argv[1]
+
+    login_message = {"type": "login", "name": robot_id}
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(connect_to_signalling_server(signalling_server_uri, login_message))
+    loop.run_forever();
+
+"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="WebRTC audio / video / data-channels demo"
@@ -209,3 +192,4 @@ if __name__ == "__main__":
     web.run_app(
         app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
     )
+"""
