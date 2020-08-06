@@ -102,8 +102,6 @@ async def offer_handler(offer, name):
     await robot_connection.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
     answer = await robot_connection.createAnswer()
     await robot_connection.setLocalDescription(answer)
-    print("LOCAL")
-    print(robot_connection.localDescription)
     message = json.dumps({"answer": \
         {"sdp": robot_connection.localDescription.sdp, \
         "type": robot_connection.localDescription.type}, \
@@ -127,10 +125,7 @@ def parse_candidate(candidateInitDict):
 
 async def recv_remote_candidate_handler(candidate):
     global robot_connection
-    my_candy = parse_candidate(candidate)    
-    print(my_candy)
-    robot_connection.addIceCandidate(my_candy)
-    print("candidate added")
+    robot_connection.addIceCandidate(parse_candidate(candidate))
 
 async def forever_print():
     cap = cv2.VideoCapture(0)
