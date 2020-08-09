@@ -3,13 +3,11 @@ import json
 import websockets
 import sys
 import cv2
+from PIL import Image
 
 from av import VideoFrame
 
 from aiortc import *
-from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder
-from aioice.candidate import Candidate
-from aiortc.rtcicetransport import candidate_from_aioice
 
 """
 class VideoTransformTrack(MediaStreamTrack):
@@ -57,6 +55,7 @@ websocket = None
 async def connect_to_signalling_server(uri, login_message):
     global websocket
     websocket = await websockets.connect(uri)
+    print("Connected to server")
     await websocket.send(json.dumps(login_message))
 
 async def recv_message_handler():
@@ -70,8 +69,6 @@ async def recv_message_handler():
             await login_handler()
         elif data["type"] == "offer":
             await offer_handler(data["offer"], data["name"])
-        elif data["type"] == "candidate":
-            await recv_remote_candidate_handler(data["candidate"])
         else:
             pass
 
@@ -90,17 +87,21 @@ async def login_handler():
         @channel.on("message")
         def on_message(message):
             print(message)
+            control_data_channel.send("Hi there boi")
 
     print("RTCPeerConnection object is created")
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
+    robot_connection.addTrack(WebcamTrack())
+
 
 async def offer_handler(offer, name):
     global websocket
     global robot_connection
     
-    await robot_connection.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
+    await robot_connection.setRemoteDescription(RTCSessionDescription(offer, "offer"))
     answer = await robot_connection.createAnswer()
+
     await robot_connection.setLocalDescription(answer)
     message = json.dumps({"answer": \
         {"sdp": robot_connection.localDescription.sdp, \
@@ -108,43 +109,58 @@ async def offer_handler(offer, name):
         "name": name,
         "type": robot_connection.localDescription.type})
     await websocket.send(message)
-    print("answer sent to " + name)
+    print("Answer sent to " + name)
 
-def parse_candidate(candidateInitDict):
-    candpref = 'candidate:'
-    candstr = candidateInitDict['candidate']
-    if not candstr.startswith(candpref):
-            raise ValueError('does not start with proper string')
-    candstr = candstr[len(candpref):]
-    cand = Candidate.from_sdp(candstr)
+class WebcamTrack(VideoStreamTrack):
+    def __init__(self):
+        super().__init__()
+        self.webcam = cv2.VideoCapture("./test.mp4")
+        #self.webcam = cv2.VideoCapture(0)
 
-    ric = candidate_from_aioice(cand)
-    ric.sdpMid = candidateInitDict['sdpMid']
-    ric.sdpMLineIndex = candidateInitDict['sdpMLineIndex']
-    return ric
+    async def recv(self):
+        pts, time_base = await self.next_timestamp()
 
-async def recv_remote_candidate_handler(candidate):
-    global robot_connection
-    robot_connection.addIceCandidate(parse_candidate(candidate))
+        #frame = VideoFrame(width=640, height=480)
+        ret, cv_frame = self.webcam.read()
+        #cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
+        #cv2.imshow("Test window", cv_frame)
+        #cv2.waitKey(1)
+
+        #cv_frame = Image.fromarray(cv_frame)
+        frame = VideoFrame.from_ndarray(cv_frame, format="bgr24")
+        
+        #for p in frame.planes:
+        #    p.update(bytes(p.buffer_size))
+        frame.pts = pts
+        frame.time_base = time_base
+        return frame
 
 async def forever_print():
-    cap = cv2.VideoCapture(0)
-    ret, frame = cap.read()
-    while ret:
-        ret, frame = cap.read()
-        cv2.imshow("Window", frame)
-        cv2.waitKey(1)
-        await asyncio.sleep(0.0001)
+    global control_data_channel
+    
+    await asyncio.sleep(20)
+
+    print("starting video")
+    #cap = cv2.VideoCapture(0)
+    #ret, frame = cap.read()
+    while True:
+        #ret, frame = cap.read()
+        #cv2.imshow("Window", frame)
+        #cv2.waitKey(1)
+        print("Sending data")
+        control_data_channel.send("Hi there boi")
+        await asyncio.sleep(1)
 
 async def main():
-    await asyncio.gather(
-        forever_print(),    
-        connect_to_signalling_server(signalling_server_uri, {"type": "login", "name": robot_id}),
-        recv_message_handler())
-
-if __name__ == "__main__":
     signalling_server_uri = "ws://54.179.2.91:49621"
     robot_id = sys.argv[1]
+    
+    await asyncio.gather(    
+        connect_to_signalling_server(signalling_server_uri, {"type": "login", "name": robot_id}),
+        recv_message_handler())
+        #forever_print())
 
+if __name__ == "__main__":
+    
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
