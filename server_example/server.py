@@ -2,8 +2,11 @@ import asyncio
 import json
 import websockets
 import sys
+
+import zmq
 import cv2
 from PIL import Image
+import numpy as np
 
 from av import VideoFrame
 
@@ -76,19 +79,25 @@ class WebcamTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
         self.webcam = cv2.VideoCapture("./test.mp4")
+        self.sub_context = zmq.Context()
+        self.sub = self.sub_context.socket(zmq.SUB)
+        self.sub.setsockopt(zmq.CONFLATE, 1)
+        self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        self.is_init = True
 
     async def recv(self):
+        if self.is_init:
+            self.sub.connect("tcp://127.0.0.1:12345")
+            self.is_init = False
+
         pts, time_base = await self.next_timestamp()
 
-        ret, cv_frame = self.webcam.read()
-        if not ret:
-            self.webcam.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, cv_frame = self.webcam.read()
+        raw_bytes = self.sub.recv()
 
-        #cv2.imshow("test", cv_frame)
-        #cv2.waitKey(1)
+        byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+        cv_frame = np.reshape(byte_arr, (720, 1280, 3))
 
-        frame = VideoFrame.from_ndarray(cv_frame, format="bgr24")
+        frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
         return frame
