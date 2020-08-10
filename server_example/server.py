@@ -65,32 +65,35 @@ async def login_handler():
             print(controls)
 
             # Format is w a s d up left down right space
-            control_signal = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
+            move_signal = ['0', '0', '0', '0']
+            turn_signal = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
+            
             for key in controls:
                 if key == "w":
-                    control_signal[0] = "1"
+                    move_signal[0] = "1"
                 elif key == "a":
-                    control_signal[1] = "1"
+                    move_signal[1] = "1"
                 elif key == "s":
-                    control_signal[2] = "1"
+                    move_signal[2] = "1"
                 elif key == "d":
-                    control_signal[3] = "1"
+                    move_signal[3] = "1"
                 elif key == "ArrowUp":
-                    control_signal[4] = "1"
+                    turn_signal[4] = "1"
                 elif key == "ArrowLeft":
-                    control_signal[5] = "1"
+                    turn_signal[5] = "1"
                 elif key == "ArrowDown":
-                    control_signal[6] = "1"
+                    turn_signal[6] = "1"
                 elif key == "ArrowRight":
-                    control_signal[7] = "1"
+                    turn_signal[7] = "1"
                 elif key == " ":
-                    control_signal[8] = "1"
+                    turn_signal[8] = "1"
             
-            command = "".join(control_signal)
+            move_command = "".join(move_signal)
+            turn_command = "".join(turn_signal)
 
             for i in range(0, 30):
-                #turn_pub.send_string(command)
-                move_pub.send_string(command)
+                move_pub.send_string(move_command)
+                turn_pub.send_string(turn_command)
 
     print("RTCPeerConnection object is created")
 
