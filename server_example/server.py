@@ -9,45 +9,6 @@ from av import VideoFrame
 
 from aiortc import *
 
-"""
-class VideoTransformTrack(MediaStreamTrack):
-
-    kind = "video"
-
-    def __init__(self, track):
-        super().__init__()  # don't forget this!
-        self.track = track
-
-    async def recv(self):
-        frame = await self.track.recv()
-        return frame
-
-    @pc.on("iceconnectionstatechange")
-    async def on_iceconnectionstatechange():
-        log_info("ICE connection state is %s", pc.iceConnectionState)
-        if pc.iceConnectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
-
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
-
-        local_video = VideoTransformTrack(track)
-        pc.addTrack(local_video)
-
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
-
-async def on_shutdown(app):
-    # close peer connections
-    coros = [pc.close() for pc in pcs]
-    await asyncio.gather()
-    pcs.clear()
-"""
-
 robot_connection = None
 control_data_channel = None
 websocket = None
@@ -115,22 +76,19 @@ class WebcamTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
         self.webcam = cv2.VideoCapture("./test.mp4")
-        #self.webcam = cv2.VideoCapture(0)
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
 
-        #frame = VideoFrame(width=640, height=480)
         ret, cv_frame = self.webcam.read()
-        #cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
-        #cv2.imshow("Test window", cv_frame)
+        if not ret:
+            self.webcam.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, cv_frame = self.webcam.read()
+
+        #cv2.imshow("test", cv_frame)
         #cv2.waitKey(1)
 
-        #cv_frame = Image.fromarray(cv_frame)
         frame = VideoFrame.from_ndarray(cv_frame, format="bgr24")
-        
-        #for p in frame.planes:
-        #    p.update(bytes(p.buffer_size))
         frame.pts = pts
         frame.time_base = time_base
         return frame
@@ -152,11 +110,14 @@ async def forever_print():
         await asyncio.sleep(1)
 
 async def main():
-    signalling_server_uri = "ws://54.179.2.91:49621"
+    signalling_server_uri = "ws://localhost:49621"
     robot_id = sys.argv[1]
     
     await asyncio.gather(    
-        connect_to_signalling_server(signalling_server_uri, {"type": "login", "name": robot_id}),
+        connect_to_signalling_server(signalling_server_uri, 
+        {"type": "robot-login", 
+        "name": robot_id,
+        "joinedGame": "battle"}),
         recv_message_handler())
         #forever_print())
 
