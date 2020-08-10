@@ -46,12 +46,51 @@ async def login_handler():
 
     robot_connection = RTCPeerConnection(configuration=config)
 
+    turn_pub_context = zmq.Context()
+    turn_pub = turn_pub_context.socket(zmq.PUB)
+    turn_pub.setsockopt(zmq.CONFLATE, 1)
+    turn_pub.bind("tcp://127.0.0.1:12346")
+
+    move_pub_context = zmq.Context()
+    move_pub = move_pub_context.socket(zmq.PUB)
+    move_pub.setsockopt(zmq.CONFLATE, 1)
+    move_pub.bind("tcp://127.0.0.1:12347")
+
     @robot_connection.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
         def on_message(message):
-            print(message)
-            control_data_channel.send("Hi there boi")
+            controls = json.loads(message)
+            
+            print(controls)
+
+            # Format is w a s d up left down right space
+            control_signal = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
+            for key in controls:
+                if key == "w":
+                    control_signal[0] = "1"
+                elif key == "a":
+                    control_signal[1] = "1"
+                elif key == "s":
+                    control_signal[2] = "1"
+                elif key == "d":
+                    control_signal[3] = "1"
+                elif key == "ArrowUp":
+                    control_signal[4] = "1"
+                elif key == "ArrowLeft":
+                    control_signal[5] = "1"
+                elif key == "ArrowDown":
+                    control_signal[6] = "1"
+                elif key == "ArrowRight":
+                    control_signal[7] = "1"
+                elif key == " ":
+                    control_signal[8] = "1"
+            
+            command = "".join(control_signal)
+
+            for i in range(0, 30):
+                #turn_pub.send_string(command)
+                move_pub.send_string(command)
 
     print("RTCPeerConnection object is created")
 
@@ -78,7 +117,7 @@ async def offer_handler(offer, name):
 class WebcamTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
-        self.webcam = cv2.VideoCapture("./test.mp4")
+        #self.webcam = cv2.VideoCapture("./test.mp4")
         self.sub_context = zmq.Context()
         self.sub = self.sub_context.socket(zmq.SUB)
         self.sub.setsockopt(zmq.CONFLATE, 1)
@@ -119,7 +158,7 @@ async def forever_print():
         await asyncio.sleep(1)
 
 async def main():
-    signalling_server_uri = "ws://localhost:49621"
+    signalling_server_uri = "ws://54.179.2.91:49621"
     robot_id = sys.argv[1]
     
     await asyncio.gather(    
