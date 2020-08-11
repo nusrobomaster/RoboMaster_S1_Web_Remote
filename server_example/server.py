@@ -50,13 +50,22 @@ async def login_handler():
 
     turn_pub_context = zmq.Context()
     turn_pub = turn_pub_context.socket(zmq.PUB)
-    turn_pub.setsockopt(zmq.CONFLATE, 1)
+    #turn_pub.setsockopt(zmq.CONFLATE, 1)
+    #turn_pub.setsockopt(zmq.SNDHWM, 100)
+    #turn_pub.setsockopt(zmq.RCVHWM, 100)
     turn_pub.bind("tcp://127.0.0.1:12346")
 
     move_pub_context = zmq.Context()
     move_pub = move_pub_context.socket(zmq.PUB)
-    move_pub.setsockopt(zmq.CONFLATE, 1)
+    #move_pub.setsockopt(zmq.CONFLATE, 1)
+    move_pub.setsockopt(zmq.SNDHWM, 1)
+    move_pub.setsockopt(zmq.RCVHWM, 1)
     move_pub.bind("tcp://127.0.0.1:12347")
+
+    shoot_pub_context = zmq.Context()
+    shoot_pub = shoot_pub_context.socket(zmq.PUB)
+    #shoot_pub.setsockopt(zmq.CONFLATE, 1)
+    shoot_pub.bind("tcp://127.0.0.1:12348")
 
     @robot_connection.on("datachannel")
     def on_datachannel(channel):
@@ -68,16 +77,17 @@ async def login_handler():
 
             # Format is w a s d up left down right space
             move_signal = ['0', '0', '0', '0']
-            turn_signal = ['0', '0', '0', '0', '0', '0', '0', '0', '0']
+            turn_signal = ['0', '0', '0', '0', '0', '0', '0', '0']
+            shoot_command = "0"
             
             for key in controls:
-                if key == "w":
+                if key == "w" or key == "W":
                     move_signal[0] = "1"
-                elif key == "a":
+                elif key == "a" or key == "A":
                     move_signal[1] = "1"
-                elif key == "s":
+                elif key == "s" or key == "S":
                     move_signal[2] = "1"
-                elif key == "d":
+                elif key == "d" or key == "D":
                     move_signal[3] = "1"
                 elif key == "ArrowUp":
                     turn_signal[4] = "1"
@@ -87,20 +97,21 @@ async def login_handler():
                     turn_signal[6] = "1"
                 elif key == "ArrowRight":
                     turn_signal[7] = "1"
-                elif key == " ":
-                    turn_signal[8] = "1"
+                elif key == "e" or key == "E":
+                    shoot_command = "1"
             
             move_command = "".join(move_signal)
             turn_command = "".join(turn_signal)
 
-            #for i in range(0, 30):
-            #    move_pub.send_string(move_command)
-            #    turn_pub.send_string(turn_command)
-
-    print("RTCPeerConnection object is created")
+            move_pub.send_string(move_command)
+            turn_pub.send_string(turn_command)
+            shoot_pub.send_string(shoot_command)
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
     robot_connection.addTrack(S1AppTrack())
+
+    print("RTCPeerConnection object is created")
+
 
 
 async def offer_handler(offer, name):
@@ -125,34 +136,35 @@ async def leave_handler(name):
     global control_data_channel
     
     print("Closing peer connection to " + str(name))
-    await robot_connection.close() # Close peer connection 
-    control_data_channel = None
+    # Close peer connection 
+    control_data_channel.close()
+    await robot_connection.close() 
     await login_handler()
 
 
 class S1AppTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
-        #self.sub_context = zmq.Context()
-        #self.sub = self.sub_context.socket(zmq.SUB)
-        #self.sub.setsockopt(zmq.CONFLATE, 1)
-        #self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
-        #self.is_init = True
+        self.sub_context = zmq.Context()
+        self.sub = self.sub_context.socket(zmq.SUB)
+        self.sub.setsockopt(zmq.CONFLATE, 1)
+        self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        self.is_init = True
 
-        self.webcam = cv2.VideoCapture(0)
+        #self.webcam = cv2.VideoCapture("./test.mp4")
 
     async def recv(self):
-        #if self.is_init:
-        #    self.sub.connect("tcp://127.0.0.1:12345")
-        #    self.is_init = False
+        if self.is_init:
+            self.sub.connect("tcp://127.0.0.1:12345")
+            self.is_init = False
 
         pts, time_base = await self.next_timestamp()
 
-        #raw_bytes = self.sub.recv()
+        raw_bytes = self.sub.recv()
 
-        #byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-        #cv_frame = np.reshape(byte_arr, (720, 1280, 3))
-        ret, cv_frame = self.webcam.read()
+        byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+        cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+        #ret, cv_frame = self.webcam.read()
 
         frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
         frame.pts = pts
