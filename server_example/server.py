@@ -33,8 +33,10 @@ async def recv_message_handler():
             await login_handler()
         elif data["type"] == "offer":
             await offer_handler(data["offer"], data["name"])
+        elif data["type"] == "leave":
+            await leave_handler(data["name"])
         else:
-            pass
+            print("Unknown message received from signalling server")
 
 async def login_handler():
     global robot_connection
@@ -91,14 +93,14 @@ async def login_handler():
             move_command = "".join(move_signal)
             turn_command = "".join(turn_signal)
 
-            for i in range(0, 30):
-                move_pub.send_string(move_command)
-                turn_pub.send_string(turn_command)
+            #for i in range(0, 30):
+            #    move_pub.send_string(move_command)
+            #    turn_pub.send_string(turn_command)
 
     print("RTCPeerConnection object is created")
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
-    robot_connection.addTrack(WebcamTrack())
+    robot_connection.addTrack(S1AppTrack())
 
 
 async def offer_handler(offer, name):
@@ -117,51 +119,52 @@ async def offer_handler(offer, name):
     await websocket.send(message)
     print("Answer sent to " + name)
 
-class WebcamTrack(VideoStreamTrack):
+
+async def leave_handler(name):
+    global robot_connection
+    global control_data_channel
+    
+    print("Closing peer connection to " + str(name))
+    await robot_connection.close() # Close peer connection 
+    control_data_channel = None
+    await login_handler()
+
+
+class S1AppTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
-        #self.webcam = cv2.VideoCapture("./test.mp4")
-        self.sub_context = zmq.Context()
-        self.sub = self.sub_context.socket(zmq.SUB)
-        self.sub.setsockopt(zmq.CONFLATE, 1)
-        self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
-        self.is_init = True
+        #self.sub_context = zmq.Context()
+        #self.sub = self.sub_context.socket(zmq.SUB)
+        #self.sub.setsockopt(zmq.CONFLATE, 1)
+        #self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        #self.is_init = True
+
+        self.webcam = cv2.VideoCapture(0)
 
     async def recv(self):
-        if self.is_init:
-            self.sub.connect("tcp://127.0.0.1:12345")
-            self.is_init = False
+        #if self.is_init:
+        #    self.sub.connect("tcp://127.0.0.1:12345")
+        #    self.is_init = False
 
         pts, time_base = await self.next_timestamp()
 
-        raw_bytes = self.sub.recv()
+        #raw_bytes = self.sub.recv()
 
-        byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-        cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+        #byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+        #cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+        ret, cv_frame = self.webcam.read()
 
         frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
         return frame
 
-async def forever_print():
-    global control_data_channel
-    
-    await asyncio.sleep(20)
-
-    print("starting video")
-    #cap = cv2.VideoCapture(0)
-    #ret, frame = cap.read()
-    while True:
-        #ret, frame = cap.read()
-        #cv2.imshow("Window", frame)
-        #cv2.waitKey(1)
-        print("Sending data")
-        control_data_channel.send("Hi there boi")
-        await asyncio.sleep(1)
 
 async def main():
     signalling_server_uri = "ws://54.179.2.91:49621"
+    if len(sys.argv) == 3:
+        signalling_server_uri = "ws://localhost:49621"
+
     robot_id = sys.argv[1]
     
     await asyncio.gather(    
@@ -170,9 +173,13 @@ async def main():
         "name": robot_id,
         "joinedGame": "battle"}),
         recv_message_handler())
-        #forever_print())
+
 
 if __name__ == "__main__":
-    
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("Exiting")
+
+
