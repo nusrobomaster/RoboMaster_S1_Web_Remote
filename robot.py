@@ -108,7 +108,7 @@ async def login_handler():
             shoot_pub.send_string(shoot_command)
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
-    robot_connection.addTrack(S1AppTrack())
+    #robot_connection.addTrack(S1AppTrack())
 
     print("RTCPeerConnection object is created")
 
