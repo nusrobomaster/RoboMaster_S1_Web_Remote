@@ -9,12 +9,27 @@ from PIL import Image
 import numpy as np
 
 from av import VideoFrame
+import pyautogui as pyg
 
 from aiortc import *
 
 robot_connection = None
 control_data_channel = None
 websocket = None
+
+control_signals = {"w": "w",
+                "a": "a",
+                "s": "s",
+                "d": "d",
+                "ArrowUp": "up",
+                "ArrowLeft": "left",
+                "ArrowDown": "down",
+                "ArrowRight": "right"}
+
+pyg.PAUSE = 0
+button_pos = pyg.locateCenterOnScreen("back_button.jpg", confidence=0.9)
+pyg.moveTo(button_pos[0], button_pos[1])
+pyg.click()
 
 async def connect_to_signalling_server(uri, login_message):
     global websocket
@@ -41,6 +56,7 @@ async def recv_message_handler():
 async def login_handler():
     global robot_connection
     global control_data_channel
+    global control_signals
 
     config = RTCConfiguration([\
         RTCIceServer("turn:54.179.2.91:3478", username="RaghavB", credential="RMTurnServer"),\
@@ -48,24 +64,24 @@ async def login_handler():
 
     robot_connection = RTCPeerConnection(configuration=config)
 
-    turn_pub_context = zmq.Context()
-    turn_pub = turn_pub_context.socket(zmq.PUB)
+    #turn_pub_context = zmq.Context()
+    #turn_pub = turn_pub_context.socket(zmq.PUB)
     #turn_pub.setsockopt(zmq.CONFLATE, 1)
     #turn_pub.setsockopt(zmq.SNDHWM, 100)
     #turn_pub.setsockopt(zmq.RCVHWM, 100)
-    turn_pub.bind("tcp://127.0.0.1:12346")
+    #turn_pub.bind("tcp://127.0.0.1:12346")
 
-    move_pub_context = zmq.Context()
-    move_pub = move_pub_context.socket(zmq.PUB)
+    #move_pub_context = zmq.Context()
+    #move_pub = move_pub_context.socket(zmq.PUB)
     #move_pub.setsockopt(zmq.CONFLATE, 1)
-    move_pub.setsockopt(zmq.SNDHWM, 1)
-    move_pub.setsockopt(zmq.RCVHWM, 1)
-    move_pub.bind("tcp://127.0.0.1:12347")
+    #move_pub.setsockopt(zmq.SNDHWM, 1)
+    #move_pub.setsockopt(zmq.RCVHWM, 1)
+    #move_pub.bind("tcp://127.0.0.1:12347")
 
-    shoot_pub_context = zmq.Context()
-    shoot_pub = shoot_pub_context.socket(zmq.PUB)
+    #shoot_pub_context = zmq.Context()
+    #shoot_pub = shoot_pub_context.socket(zmq.PUB)
     #shoot_pub.setsockopt(zmq.CONFLATE, 1)
-    shoot_pub.bind("tcp://127.0.0.1:12348")
+    #shoot_pub.bind("tcp://127.0.0.1:12348")
 
     @robot_connection.on("datachannel")
     def on_datachannel(channel):
@@ -73,45 +89,20 @@ async def login_handler():
         def on_message(message):
             controls = json.loads(message)
             
-            print(controls)
-
-            # Format is w a s d up left down right space
-            move_signal = ['0', '0', '0', '0']
-            turn_signal = ['0', '0', '0', '0', '0', '0', '0', '0']
-            shoot_command = "0"
+            print(controls)            
             
-            for key in controls:
-                if key == "w" or key == "W":
-                    move_signal[0] = "1"
-                elif key == "a" or key == "A":
-                    move_signal[1] = "1"
-                elif key == "s" or key == "S":
-                    move_signal[2] = "1"
-                elif key == "d" or key == "D":
-                    move_signal[3] = "1"
-                elif key == "ArrowUp":
-                    turn_signal[4] = "1"
-                elif key == "ArrowLeft":
-                    turn_signal[5] = "1"
-                elif key == "ArrowDown":
-                    turn_signal[6] = "1"
-                elif key == "ArrowRight":
-                    turn_signal[7] = "1"
-                elif key == "e" or key == "E":
-                    shoot_command = "1"
-            
-            move_command = "".join(move_signal)
-            turn_command = "".join(turn_signal)
+            for key in control_signals:
+                if key in controls:
+                    pyg.keyDown(control_signals[key])
+                else:
+                    pyg.keyUp(control_signals[key])
 
-            move_pub.send_string(move_command)
-            turn_pub.send_string(turn_command)
-            shoot_pub.send_string(shoot_command)
+            if "e" in controls:
+                pyg.click()
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
     robot_connection.addTrack(S1AppTrack())
-
     print("RTCPeerConnection object is created")
-
 
 
 async def offer_handler(offer, name):
@@ -134,6 +125,11 @@ async def offer_handler(offer, name):
 async def leave_handler(name):
     global robot_connection
     global control_data_channel
+    global control_signals
+
+    # Reset keypresses
+    for key in control_signals:
+        pyg.keyUp(control_signals[key])
     
     print("Closing peer connection to " + str(name))
     # Close peer connection 
@@ -164,6 +160,18 @@ class S1AppTrack(VideoStreamTrack):
 
         byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
         cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+
+        # Draw crosshair
+        center_point = (int(cv_frame.shape[1]/2), int(cv_frame.shape[0]/2))
+        cv2.circle(cv_frame, center_point, 3, (255,255,255), thickness=-1)
+        cv2.line(cv_frame, (center_point[0],center_point[1]-20), (center_point[0],center_point[1]-40),
+                color=(255,255,255), thickness=2) # Up
+        cv2.line(cv_frame, (center_point[0],center_point[1]+20), (center_point[0],center_point[1]+40),
+                color=(255,255,255), thickness=2) # Down
+        cv2.line(cv_frame, (center_point[0]-20,center_point[1]), (center_point[0]-40,center_point[1]), 
+                color=(255,255,255), thickness=2) # Left
+        cv2.line(cv_frame, (center_point[0]+20,center_point[1]), (center_point[0]+40,center_point[1]), 
+                color=(255,255,255), thickness=2) # Right
         #ret, cv_frame = self.webcam.read()
 
         frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
