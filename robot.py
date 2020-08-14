@@ -174,6 +174,8 @@ class S1AppTrack(VideoStreamTrack):
                 color=(255,255,255), thickness=2) # Right
         #ret, cv_frame = self.webcam.read()
 
+        cv_frame = cv2.resize(cv_frame, (int(cv_frame.shape[1] / 2), int(cv_frame.shape[0] / 2)))
+
         frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
