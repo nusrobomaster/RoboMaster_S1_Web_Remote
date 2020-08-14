@@ -64,25 +64,6 @@ async def login_handler():
 
     robot_connection = RTCPeerConnection(configuration=config)
 
-    #turn_pub_context = zmq.Context()
-    #turn_pub = turn_pub_context.socket(zmq.PUB)
-    #turn_pub.setsockopt(zmq.CONFLATE, 1)
-    #turn_pub.setsockopt(zmq.SNDHWM, 100)
-    #turn_pub.setsockopt(zmq.RCVHWM, 100)
-    #turn_pub.bind("tcp://127.0.0.1:12346")
-
-    #move_pub_context = zmq.Context()
-    #move_pub = move_pub_context.socket(zmq.PUB)
-    #move_pub.setsockopt(zmq.CONFLATE, 1)
-    #move_pub.setsockopt(zmq.SNDHWM, 1)
-    #move_pub.setsockopt(zmq.RCVHWM, 1)
-    #move_pub.bind("tcp://127.0.0.1:12347")
-
-    #shoot_pub_context = zmq.Context()
-    #shoot_pub = shoot_pub_context.socket(zmq.PUB)
-    #shoot_pub.setsockopt(zmq.CONFLATE, 1)
-    #shoot_pub.bind("tcp://127.0.0.1:12348")
-
     @robot_connection.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -97,7 +78,7 @@ async def login_handler():
                 else:
                     pyg.keyUp(control_signals[key])
 
-            if "e" in controls:
+            if " " in controls:
                 pyg.click()
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
@@ -147,8 +128,6 @@ class S1AppTrack(VideoStreamTrack):
         self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
         self.is_init = True
 
-        #self.webcam = cv2.VideoCapture("./test.mp4")
-
     async def recv(self):
         if self.is_init:
             self.sub.connect("tcp://127.0.0.1:12345")
@@ -172,7 +151,6 @@ class S1AppTrack(VideoStreamTrack):
                 color=(255,255,255), thickness=2) # Left
         cv2.line(cv_frame, (center_point[0]+20,center_point[1]), (center_point[0]+40,center_point[1]), 
                 color=(255,255,255), thickness=2) # Right
-        #ret, cv_frame = self.webcam.read()
 
         frame = VideoFrame.from_ndarray(cv_frame, format="rgb24")
         frame.pts = pts
