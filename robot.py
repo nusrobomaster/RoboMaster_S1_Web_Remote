@@ -79,7 +79,9 @@ async def login_handler():
                     pyg.keyUp(control_signals[key])
 
             if " " in controls:
-                pyg.click()
+                pyg.mouseDown()
+            else:
+                pyg.mouseUp()
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
     robot_connection.addTrack(S1AppTrack())
