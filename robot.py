@@ -94,7 +94,7 @@ async def offer_handler(offer, name):
     
     await robot_connection.setRemoteDescription(RTCSessionDescription(offer, "offer"))
     answer = await robot_connection.createAnswer()
-
+    
     await robot_connection.setLocalDescription(answer)
     message = json.dumps({"answer": \
         {"sdp": robot_connection.localDescription.sdp, \
@@ -113,6 +113,7 @@ async def leave_handler(name):
     # Reset keypresses
     for key in control_signals:
         pyg.keyUp(control_signals[key])
+    pyg.keyUp(" ")
     
     print("Closing peer connection to " + str(name))
     # Close peer connection 
