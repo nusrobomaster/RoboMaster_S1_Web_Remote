@@ -26,10 +26,10 @@ control_signals = {"w": "w",
                 "ArrowDown": "down",
                 "ArrowRight": "right"}
 
-pyg.PAUSE = 0
-button_pos = pyg.locateCenterOnScreen("back_button.jpg", confidence=0.9)
-pyg.moveTo(button_pos[0], button_pos[1])
-pyg.click()
+# pyg.PAUSE = 0
+# button_pos = pyg.locateCenterOnScreen("back_button.jpg", confidence=0.9)
+# pyg.moveTo(button_pos[0], button_pos[1])
+# pyg.click()
 
 async def connect_to_signalling_server(uri, login_message):
     global websocket
@@ -59,7 +59,7 @@ async def login_handler():
     global control_signals
 
     config = RTCConfiguration([\
-        RTCIceServer("turn:54.179.2.91:3478", username="RaghavB", credential="RMTurnServer"),\
+        # RTCIceServer("turn:54.179.2.91:3478", username="RaghavB", credential="RMTurnServer"),\
         RTCIceServer("stun:stun.1.google.com:19302")])
 
     robot_connection = RTCPeerConnection(configuration=config)
@@ -130,18 +130,22 @@ class S1AppTrack(VideoStreamTrack):
         self.sub.setsockopt(zmq.CONFLATE, 1)
         self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
         self.is_init = True
+        self.cam = cv2.VideoCapture(0)
 
     async def recv(self):
-        if self.is_init:
-            self.sub.connect("tcp://127.0.0.1:12345")
-            self.is_init = False
+        # if self.is_init:
+        #     self.sub.connect("tcp://127.0.0.1:12345")
+        #     self.is_init = False
 
         pts, time_base = await self.next_timestamp()
 
-        raw_bytes = self.sub.recv()
+        # raw_bytes = self.sub.recv()
 
-        byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-        cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+        # byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+        # cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+
+        x, cv_frame = self.cam.read()
+        cv2.imshow("frame", cv_frame)
 
         # Draw crosshair
         center_point = (int(cv_frame.shape[1]/2), int(cv_frame.shape[0]/2))
