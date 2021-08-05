@@ -145,8 +145,7 @@ class S1AppTrack(VideoStreamTrack):
         # cv_frame = np.reshape(byte_arr, (720, 1280, 3))
 
         x, cv_frame = self.cam.read()
-        cv2.imshow("frame", cv_frame)
-
+        
         # Draw crosshair
         center_point = (int(cv_frame.shape[1]/2), int(cv_frame.shape[0]/2))
         cv2.circle(cv_frame, center_point, 3, (255,255,255), thickness=-1)
