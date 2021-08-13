@@ -1,0 +1,311 @@
+{
+    "stream" : {
+        "obj": "sdk_ctrl",
+        "functions" : {
+            "on" : {
+                "set" : ["stream_on"],
+                "get" : []
+            },
+            "off" : {
+                "set" : ["stream_off"],
+                "get" : []
+            }
+        }
+    },
+    "audio" : {
+        "obj": "sdk_ctrl",
+        "functions" : {
+            "on" : {
+                "set" : ["audio_on"],
+                "get" : []
+            },
+            "off" : {
+                "set" : ["audio_off"],
+                "get" : []
+            }
+        }
+    },
+    "game_msg" : {
+        "obj": "sdk_ctrl",
+        "functions" : {
+            "on" : {
+                "set" : ["game_push_on"],
+                "get" : []
+            },
+            "off" : {
+                "set" : ["game_push_off"],
+                "get" : []
+            }
+        }
+    },
+    "robot" : {
+        "obj": "robot_ctrl",
+        "functions" : {
+            "mode" : {
+                "set" : ["set_mode", "mode"],
+                "get" : ["get_mode"]
+            },
+            "battery" : {
+                "set" : [],
+                "get" : ["get_battery_percentage"]
+            }
+        }
+    },
+    "chassis" : {
+        "obj" : "chassis_ctrl",
+        "functions" : {
+            "speed" : {
+                "set" : ["update_move_speed", "x", "y", "z"],
+                "get" : ["get_move_speed"]
+            },
+            "wheel" : {
+                "set" : ["update_wheel_speed", "w2", "w1", "w3", "w4"],
+                "get" : ["get_wheel_speed"]
+            },
+            "move" : {
+                "set" : ["update_position_based_on_cur", "x", "y", "z", "vxy", "vz", "wait_for_complete"],
+                "get" : []
+            },
+            "position" : {
+                "set" : [],
+                "get" : ["get_position"]
+            },
+            "attitude" : {
+                "set" : [],
+                "get" : ["get_attitude"]
+            },
+            "status" : {
+                "set" : [],
+                "get" : ["get_status"]
+            },
+            "push"   : {
+                "set" : ["sdk_info_push_attr_set", "position", "pfreq", "attitude", "afreq", "status", "sfreq", "freq"],
+                "get" : []
+            },
+            "stop" : {
+                "set" : ["stop"],
+                "get" : []
+            }
+       }
+    },
+    "gimbal" : {
+        "obj" : "gimbal_ctrl",
+        "functions" : {
+            "speed" : {
+                "set" : ["update_speed", "p", "y"],
+                "get" : []
+            },
+            "move" : {
+                "set" : ["update_angle_based_on_cur", "p", "y", "vp", "vy", "wait_for_complete"],
+                "get" : []
+            },
+            "moveto" : {
+                "set" : ["update_angle_based_on_origin", "p", "y", "vp", "vy", "wait_for_complete"],
+                "get" : []
+            },
+            "attitude" : {
+                "set" : [],
+                "get" : ["get_angle"]
+            },
+            "suspend" : {
+                "set" : ["suspend"],
+                "get" : []
+            },
+            "resume" : {
+                "set" : ["resume"],
+                "get" : []
+            },
+            "recenter" : {
+                "set" : ["recenter"],
+                "get" : []
+            },
+            "push"   : {
+                "set" : ["sdk_info_push_attr_set", "attitude", "afreq", "freq"],
+                "get" : []
+            },
+            "stop" : {
+                "set" : ["stop"],
+                "get" : []
+            }
+        }
+    },
+    "blaster" : {
+        "obj" : "blaster_ctrl",
+        "functions" : {
+            "bead" : {
+                "set" : ["set_fire_count", "counter"],
+                "get" : ["get_fire_count"]
+            },
+            "fire" : {
+                "set" : ["fire_once"],
+                "get" : []
+            }
+        }
+    },
+    "armor" : {
+        "obj" : "armor_ctrl",
+        "functions" : {
+            "sensitivity" : {
+                "set" : ["set_hit_sensitivity", "level"],
+                "get" : ["get_hit_sensitivity"]
+            },
+            "event" : {
+                "set" : ["sdk_event_push_enable_flag_set", "hit", "reserve"],
+                "get" : []
+            }
+        }
+    },
+    "sound" : {
+        "obj" : "media_ctrl",
+        "functions" : {
+            "event" : {
+                "set" : ["sdk_event_push_enable_flag_set", "applause", "reserve"],
+                "get" : []
+            }
+        }
+    },
+    "pwm" : {
+        "obj" : "chassis_ctrl",
+        "functions" : {
+            "value" : {
+                "set" : ["set_pwm_value", "port", "data"],
+                "get" : []
+            },
+            "freq" : {
+                "set" : ["set_pwm_freq", "port", "data"],
+                "get" : []
+            }
+        }
+    },
+    "sensor_adapter" : {
+        "obj" : "sensor_adapter_ctrl",
+        "functions" : {
+            "adc" : {
+                "set" : [],
+                "get" : ["get_sensor_adapter_adc", "id", "port"]
+            },
+            "io_level" : {
+                "set" : [],
+                "get" : ["get_sensor_adapter_io_level", "id", "port"]
+            },
+            "pulse_period" : {
+                "set" : [],
+                "get" : ["get_sensor_adapter_pulse_period", "id", "port"]
+            },
+            "event" : {
+                "set" : ["sdk_event_push_enable_flag_set", "io_level", "reserve"],
+                "get" : []
+            }
+        }
+    },
+    "ir_distance_sensor" : {
+        "obj" : "ir_distance_sensor_ctrl",
+        "functions" : {
+            "measure" : {
+                "set" : ["measure_ctrl", "enable"],
+                "get" : []
+            },
+            "distance" : {
+                "set" : [],
+                "get" : ["get_distance_info", "id"]
+            }
+        }
+    },
+    "servo" : {
+        "obj" : "servo_ctrl",
+        "functions" : {
+            "angle" : {
+                "set" : ["set_angle", "id", "angle", "wait_for_complete"],
+                "get" : ["get_angle", "id"]
+            },
+            "speed" : {
+                "set" : ["set_speed", "id", "speed"],
+                "get" : []
+            },
+            "recenter" : {
+                "set" : ["recenter", "id", "wait_for_complete"],
+                "get" : []
+            },
+            "stop" : {
+                "set" : ["stop", "id"],
+                "get" : []
+            }
+        }
+    },
+    "robotic_arm" : {
+        "obj" : "robotic_arm_ctrl",
+        "functions" : {
+            "move" : {
+                "set" : ["move", "x", "y", "wait_for_complete"],
+                "get" : []
+            },
+            "moveto" : {
+                "set" : ["moveto", "x", "y", "wait_for_complete"],
+                "get" : []
+            },
+            "position" : {
+                "set" : [],
+                "get" : ["get_position"]
+            },
+            "recenter" : {
+                "set" : ["recenter", "wait_for_complete"],
+                "get" : []
+            },
+            "stop" : {
+                "set" : ["stop"],
+                "get" : []
+            }
+        }
+    },
+    "robotic_gripper" : {
+        "obj" : "gripper_ctrl",
+        "functions" : {
+            "open" : {
+                "set" : ["open", "level"],
+                "get" : []
+            },
+            "close" : {
+                "set" : ["close", "level"],
+                "get" : []
+            },
+            "status" : {
+                "set" : [],
+                "get" : ["get_status"]
+            },
+            "stop" : {
+                "set" : ["stop"],
+                "get" : []
+            }
+        }
+    },
+    "led" : {
+        "obj" : "led_ctrl",
+        "functions" : {
+            "control" : {
+                "set" : ["update_led_t", "comp", "effect", "r", "g", "b", "blink_freq", "single_led_index"],
+                "get" : []
+            }
+        }
+    },
+    "AI" : {
+        "obj" : "AI_ctrl",
+        "functions" : {
+            "push" : {
+                "set" : ["ctrl_detection", "people", "pose", "line", "marker", "robot", "freq"],
+                "get" : []
+            },
+            "attribute" : {
+                "set" : ["attr_set", "line_color", "marker_color", "marker_dist"]
+            }
+        }
+    },
+    "camera" : {
+        "obj" : "media_ctrl",
+        "functions" : {
+            "exposure" : {
+                "set" : ["exposure_value_update_sdk", "ev"],
+                "get" : []
+            }
+        }
+    }
+}
