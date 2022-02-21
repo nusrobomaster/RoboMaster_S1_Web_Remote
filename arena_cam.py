@@ -16,12 +16,13 @@ cam = cv2.VideoCapture(0)
 cur_frame = None
 
 def cam_func():
-    global cam
+    # global cam
     global cur_frame
     global frameSem
 
     while True:    
         ret, cur_frame = cam.read()
+
 
         cv2.imshow("Test", cur_frame)
         cv2.waitKey(1)
@@ -46,6 +47,11 @@ async def recv_message_handler():
         data = json.loads(message)
 
         if data["type"] == "offer":
+
+            if data["name"] in thread_dict:
+                print("Closing peer connection to " + str(data["name"]))
+                await thread_dict[data["name"]].close()
+                del thread_dict[data["name"]]
 
             config = RTCConfiguration([\
                 RTCIceServer("turn:18.142.123.26:3478", username="RaghavB", credential="RMTurnServer"),\

@@ -26,10 +26,10 @@ control_signals = {"w": "w",
                 "ArrowDown": "down",
                 "ArrowRight": "right"}
 
-pyg.PAUSE = 0
-button_pos = pyg.locateCenterOnScreen("back_button.jpg", confidence=0.9)
-pyg.moveTo(button_pos[0], button_pos[1])
-pyg.click()
+# pyg.PAUSE = 0
+# button_pos = pyg.locateCenterOnScreen("back_button.jpg", confidence=0.9)
+# pyg.moveTo(button_pos[0], button_pos[1])
+# pyg.click()
 
 async def connect_to_signalling_server(uri, login_message):
     global websocket
@@ -72,16 +72,16 @@ async def login_handler():
             
             print(controls)            
             
-            for key in control_signals:
-                if key in controls:
-                    pyg.keyDown(control_signals[key])
-                else:
-                    pyg.keyUp(control_signals[key])
+            # for key in control_signals:
+            #     if key in controls:
+            #         pyg.keyDown(control_signals[key])
+            #     else:
+            #         pyg.keyUp(control_signals[key])
 
-            if " " in controls:
-                pyg.mouseDown()
-            else:
-                pyg.mouseUp()
+            # if " " in controls:
+            #     pyg.mouseDown()
+            # else:
+            #     pyg.mouseUp()
 
     control_data_channel = robot_connection.createDataChannel("control_data_channel")
     robot_connection.addTrack(S1AppTrack())
@@ -130,7 +130,7 @@ class S1AppTrack(VideoStreamTrack):
         self.sub.setsockopt(zmq.CONFLATE, 1)
         self.sub.setsockopt_string(zmq.SUBSCRIBE, "")
         self.is_init = True
-        # self.cam = cv2.VideoCapture(0)
+        self.cam = cv2.VideoCapture(0)
 
     async def recv(self):
         if self.is_init:
@@ -139,12 +139,14 @@ class S1AppTrack(VideoStreamTrack):
 
         pts, time_base = await self.next_timestamp()
 
-        raw_bytes = self.sub.recv()
+        # raw_bytes = self.sub.recv()
 
-        byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-        cv_frame = np.reshape(byte_arr, (720, 1280, 3))
+        # byte_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+        # cv_frame = np.reshape(byte_arr, (720, 1280, 3))
 
-        # x, cv_frame = self.cam.read()
+        # cv_frame = np.zeros((720, 1280, 3), np.uint8)
+
+        x, cv_frame = self.cam.read()
         
         # Draw crosshair
         center_point = (int(cv_frame.shape[1]/2), int(cv_frame.shape[0]/2))
@@ -167,7 +169,7 @@ class S1AppTrack(VideoStreamTrack):
 
 
 async def main():
-    signalling_server_uri = "ws://54.179.2.91:49621"
+    signalling_server_uri = "ws://18.142.123.26:49621"
     if len(sys.argv) == 3:
         signalling_server_uri = "ws://localhost:49621"
 
