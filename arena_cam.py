@@ -23,7 +23,7 @@ cur_frame = None
 frameSem = Semaphore()
 
 def cam_func():
-    global cam
+    # global cam
     global cur_frame
     global frameSem
 
@@ -31,6 +31,8 @@ def cam_func():
         # frameSem.acquire()
         ret, cur_frame = cam.read()
         # frameSem.release()
+        # cur_frame = np.zeros((720, 1280, 3), np.uint8)
+
 
         cv2.imshow("Test", cur_frame)
         cv2.waitKey(1)
@@ -55,6 +57,11 @@ async def recv_message_handler():
         data = json.loads(message)
 
         if data["type"] == "offer":
+
+            if data["name"] in thread_dict:
+                print("Closing peer connection to " + str(data["name"]))
+                await thread_dict[data["name"]].close()
+                del thread_dict[data["name"]]
 
             config = RTCConfiguration([\
                 RTCIceServer("turn:18.142.123.26:3478", username="RaghavB", credential="RMTurnServer"),\
@@ -96,7 +103,7 @@ class CamTrack(VideoStreamTrack):
         pts, time_base = await self.next_timestamp()
 
 
-        # ret, cv_frame = self.cam.read()
+        cv_frame = cur_frame
         cv_frame = cv2.resize(cur_frame, (int(1280 / 2), int(720 / 2)))
         cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
 
