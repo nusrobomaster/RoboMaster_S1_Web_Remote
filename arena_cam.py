@@ -2,25 +2,18 @@ import asyncio
 import json
 import websockets
 import sys
-
-from threading import Semaphore, Thread
-
+from threading import Thread
 import cv2
 from PIL import Image
 import numpy as np
-
 from av import VideoFrame
-
 from aiortc import *
 
-arena_connection = None
-control_data_channel = None
 websocket = None
 
 thread_dict = {}
 cam = cv2.VideoCapture(0)
 cur_frame = None
-frameSem = Semaphore()
 
 def cam_func():
     # global cam
@@ -28,10 +21,7 @@ def cam_func():
     global frameSem
 
     while True:    
-        # frameSem.acquire()
         ret, cur_frame = cam.read()
-        # frameSem.release()
-        # cur_frame = np.zeros((720, 1280, 3), np.uint8)
 
 
         cv2.imshow("Test", cur_frame)
@@ -39,7 +29,6 @@ def cam_func():
 
 camThread = Thread(target=cam_func, daemon=True)
 camThread.start()
-
 
 
 async def connect_to_signalling_server(uri, login_message):
@@ -50,6 +39,7 @@ async def connect_to_signalling_server(uri, login_message):
 
 async def recv_message_handler():
     global websocket
+    global thread_dict
     
     await asyncio.sleep(2)
 
@@ -102,8 +92,6 @@ class CamTrack(VideoStreamTrack):
 
         pts, time_base = await self.next_timestamp()
 
-
-        cv_frame = cur_frame
         cv_frame = cv2.resize(cur_frame, (int(1280 / 2), int(720 / 2)))
         cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
 
@@ -133,5 +121,3 @@ if __name__ == "__main__":
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         print("Exiting")
-
-
